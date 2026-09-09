@@ -1,17 +1,16 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { HydratedDocument } from 'mongoose';
+import { HydratedDocument, Types } from 'mongoose';
 import * as mongoose from 'mongoose';
 
 export type ReservationDocument = HydratedDocument<Reservation>;
 
 @Schema({ timestamps: true })
 export class Reservation {
-
   @Prop({ type: mongoose.Schema.Types.ObjectId, ref: 'Asset', required: true })
-  assetId: mongoose.Schema.Types.ObjectId;
+  assetId: Types.ObjectId;
 
   @Prop({ type: mongoose.Schema.Types.ObjectId, ref: 'Worker', required: true })
-  workerId: mongoose.Schema.Types.ObjectId;
+  workerId: Types.ObjectId;
 
   @Prop({ required: true })
   windowStart: Date;
@@ -28,7 +27,6 @@ export class Reservation {
 
   @Prop({ required: true, unique: true })
   idempotencyKey: string; // double-click must not create two reservations
-
 }
 
 export const ReservationSchema = SchemaFactory.createForClass(Reservation);
