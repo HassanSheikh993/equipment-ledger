@@ -7,6 +7,7 @@ import { AssetsModule } from './assets/assets.module';
 import { WorkersModule } from './workers/workers.module';
 import { MovementsModule } from './movements/movements.module';
 import { ReservationsModule } from './reservations/reservations.module';
+import { ReconstructModule } from './reconstruct/reconstruct.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { ReservationsModule } from './reservations/reservations.module';
     WorkersModule,
     MovementsModule,
     ReservationsModule,
+    ReconstructModule,
   ],
   controllers: [AppController],
   providers: [AppService],
