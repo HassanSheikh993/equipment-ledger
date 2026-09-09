@@ -27,11 +27,11 @@ export class Reservation {
 
   @Prop({ required: true, unique: true })
   idempotencyKey: string; // double-click must not create two reservations
+
+  @Prop({ required: true })
+  recordedBy: string; // store keeper name (picked from a list)
 }
 
 export const ReservationSchema = SchemaFactory.createForClass(Reservation);
 
-// Overlap check ("may not share a minute") is done in the service inside a
-// transaction against active reservations for the same asset - a plain index
-// can't express range non-overlap. This index keeps that check cheap.
 ReservationSchema.index({ assetId: 1, status: 1, windowStart: 1 });
