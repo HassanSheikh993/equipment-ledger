@@ -1,12 +1,11 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { HydratedDocument } from 'mongoose';
+import { HydratedDocument, Types } from 'mongoose';
 import * as mongoose from 'mongoose';
 
 export type AssetDocument = HydratedDocument<Asset>;
 
 @Schema({ timestamps: true })
 export class Asset {
-
   @Prop({ required: true, unique: true })
   code: string; // e.g. HARN-014
 
@@ -35,8 +34,7 @@ export class Asset {
   // one concurrent request matches and wins. Status / holder shown on screen and
   // all history are DERIVED from the movements ledger, not from this field.
   @Prop({ type: mongoose.Schema.Types.ObjectId, ref: 'Worker', default: null })
-  heldBy: mongoose.Schema.Types.ObjectId;
-
+  heldBy: Types.ObjectId;
 }
 
 export const AssetSchema = SchemaFactory.createForClass(Asset);
