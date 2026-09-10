@@ -30,4 +30,9 @@ export class AssetsController {
   markOutOfService(@Param('id') id: string, @Body() dto: OutOfServiceDto) {
     return this.assetsService.markOutOfService(id, dto.reason);
   }
+
+  @Patch(':id/back-in-service')
+  backInService(@Param('id') id: string) {
+    return this.assetsService.backInService(id);
+  }
 }

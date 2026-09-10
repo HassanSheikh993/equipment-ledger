@@ -20,16 +20,16 @@ export class Reservation {
 
   @Prop({
     type: String,
-    enum: ['active', 'collected', 'cancelled', 'expired'],
+    enum: ['active', 'collected', 'cancelled'],
     default: 'active',
   })
   status: string;
 
   @Prop({ required: true, unique: true })
-  idempotencyKey: string; // double-click must not create two reservations
+  idempotencyKey: string;
 
   @Prop({ required: true })
-  recordedBy: string; // store keeper name (picked from a list)
+  recordedBy: string;
 }
 
 export const ReservationSchema = SchemaFactory.createForClass(Reservation);

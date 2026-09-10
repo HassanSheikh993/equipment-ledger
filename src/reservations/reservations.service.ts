@@ -12,9 +12,7 @@ import { Reservation, ReservationDocument } from './reservation.schema';
 import { CreateReservationDto } from './dto/create-reservation.dto';
 import { ListReservationsDto } from './dto/list-reservations.dto';
 
-// Tolerance for clock differences between the storekeeper laptop and server
 const PAST_TOLERANCE_MS = 2 * 60 * 1000;
-// A site tool store books days not months.
 const MAX_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
 
 @Injectable()

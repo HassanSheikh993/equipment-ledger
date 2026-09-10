@@ -7,8 +7,6 @@ import { Worker } from '../workers/worker.schema';
 import { Movement } from '../movements/movement.schema';
 import { Reservation } from '../reservations/reservation.schema';
 
-// Deterministic in structure, anchored to the moment the seed runs. Running it
-// twice wipes and rebuilds the same store - it never doubles.
 const KEEPER = 'Store Keeper';
 const DAY = 24 * 60 * 60 * 1000;
 
@@ -53,12 +51,10 @@ async function run() {
     },
     { name: 'Bilal Toor', certs: [{ name: 'Gas Safety', expiresInDays: 130 }] },
     { name: 'Carlos Diaz', certs: [] },
-    // expired cert - fails a certified issue
     {
       name: 'Danish Ali',
       certs: [{ name: 'Working at Height', expiresInDays: -6 }],
     },
-    // cert expires inside the seeded 30-day window
     {
       name: 'Erik Johansson',
       certs: [{ name: 'Gas Safety', expiresInDays: 11 }],
@@ -141,8 +137,7 @@ async function run() {
   };
 
   // ---------- Movements ----------
-  // Issue an asset. If returnedAt is given, close it; otherwise it stays
-  // outstanding and the asset keeps the holder.
+
   const issue = async (opts: {
     code: string;
     worker: string;
@@ -183,7 +178,6 @@ async function run() {
     return issueDoc;
   };
 
-  // Ordinary completed loops across the last 30 days.
   await issue({
     code: 'DRILL-001',
     worker: 'Ahmed Khan',
@@ -241,7 +235,6 @@ async function run() {
     returnedAt: at(daysAgo(8), 16),
   });
 
-  // Late-logged: happened 09:00, typed in at 14:20 the same day.
   await issue({
     code: 'LADR-002',
     worker: 'Laiba Noor',
@@ -252,7 +245,6 @@ async function run() {
     returnNote: 'Logged late - keeper was away from the hatch',
   });
 
-  // Still outstanding.
   await issue({
     code: 'HARN-004',
     worker: 'Imran Malik',
@@ -272,7 +264,6 @@ async function run() {
     dueAt: at(daysAhead(4), 17),
   });
 
-  // Outstanding AND overdue: due date already passed, still not back.
   await issue({
     code: 'DRILL-003',
     worker: 'Kamran Butt',
@@ -280,8 +271,6 @@ async function run() {
     dueAt: at(daysAgo(2), 17),
   });
 
-  // Correction: a return was logged at the wrong time, then fixed. History keeps
-  // both rows; the original is marked superseded.
   const correctedIssue = await movements.create({
     assetId: A('HARN-005'),
     workerId: W('Ahmed Khan'),

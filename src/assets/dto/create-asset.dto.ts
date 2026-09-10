@@ -7,7 +7,7 @@ import {
 } from 'class-validator';
 
 export class CreateAssetDto {
-  // Unique identity, e.g. HARN-014.
+  // Unique identity, e.g. HARN-014
   @IsString()
   @IsNotEmpty()
   code: string;
@@ -16,7 +16,7 @@ export class CreateAssetDto {
   @IsNotEmpty()
   name: string;
 
-  // e.g. harness, drill, gas-detector.
+  // e.g. harness, drill, gas-detector
   @IsString()
   @IsNotEmpty()
   kind: string;
@@ -25,7 +25,7 @@ export class CreateAssetDto {
   @IsBoolean()
   requiresCertification?: boolean;
 
-  // Required only when requiresCertification is true.
+  // Required only when requiresCertification is true
   @ValidateIf((o: CreateAssetDto) => o.requiresCertification === true)
   @IsString()
   @IsNotEmpty()

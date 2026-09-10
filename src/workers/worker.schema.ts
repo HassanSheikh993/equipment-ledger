@@ -3,8 +3,6 @@ import { HydratedDocument } from 'mongoose';
 
 export type WorkerDocument = HydratedDocument<Worker>;
 
-// Certification is nested inside Worker
-// No separate collection needed
 class Certification {
   @Prop({ required: true })
   name: string;
