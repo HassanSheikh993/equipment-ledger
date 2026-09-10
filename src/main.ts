@@ -11,6 +11,9 @@ async function bootstrap() {
   // unreachable this throws, we log it and exit non-zero.
   const app = await NestFactory.create(AppModule);
 
+  // Local dev tool, no auth - the frontend runs on a different port.
+  app.enableCors();
+
   app.useGlobalPipes(
     new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }),
   );

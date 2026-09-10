@@ -64,7 +64,7 @@ export class ReconstructService {
             }
           : null,
         since: held ? last.since : null,
-      
+
         outOfService: asset.outOfService,
       };
     });
@@ -72,7 +72,6 @@ export class ReconstructService {
     return { at, assets: result };
   }
 
-  
   async assetHistory(id: string) {
     if (!Types.ObjectId.isValid(id)) {
       throw new NotFoundException('Asset not found');
