@@ -27,7 +27,6 @@ export class ReservationsService {
   ) {}
 
   async create(dto: CreateReservationDto) {
-    
     const existing = await this.reservationModel.findOne({
       idempotencyKey: dto.idempotencyKey,
     });
@@ -36,7 +35,6 @@ export class ReservationsService {
     const windowStart = new Date(dto.windowStart);
     const windowEnd = new Date(dto.windowEnd);
 
-   
     if (windowStart >= windowEnd) {
       throw new BadRequestException('windowEnd must be after windowStart');
     }
@@ -64,7 +62,6 @@ export class ReservationsService {
     const worker = await this.workerModel.findById(dto.workerId);
     if (!worker) throw new NotFoundException('Worker not found');
 
-   
     const clash = await this.reservationModel.findOne({
       assetId: dto.assetId,
       status: 'active',
@@ -89,7 +86,6 @@ export class ReservationsService {
         recordedBy: dto.recordedBy,
       });
     } catch (err) {
-     
       if ((err as { code?: number }).code === 11000) {
         const winner = await this.reservationModel.findOne({
           idempotencyKey: dto.idempotencyKey,
@@ -120,7 +116,7 @@ export class ReservationsService {
     if (!Types.ObjectId.isValid(id)) {
       throw new NotFoundException('Reservation not found');
     }
-    
+
     const reservation = await this.reservationModel.findOneAndUpdate(
       { _id: id, status: 'active' },
       { $set: { status: 'cancelled' } },

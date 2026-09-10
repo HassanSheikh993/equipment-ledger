@@ -15,13 +15,11 @@ class Certification {
 
 @Schema({ timestamps: true })
 export class Worker {
-
   @Prop({ required: true })
   name: string;
 
   @Prop({ type: [Certification], default: [] })
   certifications: Certification[];
-
 }
 
 export const WorkerSchema = SchemaFactory.createForClass(Worker);
