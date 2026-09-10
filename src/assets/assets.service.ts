@@ -13,7 +13,6 @@ import { ListAssetsDto } from './dto/list-assets.dto';
 export class AssetsService {
   constructor(@InjectModel(Asset.name) private assetModel: Model<Asset>) {}
 
-  // heldBy is the live concurrency guard, so it is the accurate current holder.
   list(dto: ListAssetsDto) {
     const filter: Record<string, unknown> = {};
     if (dto.kind) filter.kind = dto.kind;
@@ -41,7 +40,6 @@ export class AssetsService {
     if (!Types.ObjectId.isValid(id)) {
       throw new NotFoundException('Asset not found');
     }
-    // Allowed while issued or reserved - it just can't be issued/reserved again.
     const asset = await this.assetModel.findOneAndUpdate(
       { _id: id, outOfService: false },
       { $set: { outOfService: true, outOfServiceReason: reason } },
@@ -52,5 +50,21 @@ export class AssetsService {
     const exists = await this.assetModel.exists({ _id: id });
     if (!exists) throw new NotFoundException('Asset not found');
     throw new ConflictException('Asset is already out of service');
+  }
+
+  async backInService(id: string) {
+    if (!Types.ObjectId.isValid(id)) {
+      throw new NotFoundException('Asset not found');
+    }
+    const asset = await this.assetModel.findOneAndUpdate(
+      { _id: id, outOfService: true },
+      { $set: { outOfService: false, outOfServiceReason: null } },
+      { new: true },
+    );
+    if (asset) return asset;
+
+    const exists = await this.assetModel.exists({ _id: id });
+    if (!exists) throw new NotFoundException('Asset not found');
+    throw new ConflictException('Asset is not out of service');
   }
 }

@@ -1,98 +1,109 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Equipment Ledger — Backend
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+NestJS + MongoDB API for a construction-site tool store. Replaces the paper book: issue and return tools, reserve them for a future window, and reconstruct the whole store as it stood at any past instant.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+The frontend is a **separate repository** (Next.js).
 
-## Description
+## 1. How to run
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+Needs MongoDB running locally.
 
-## Project setup
-
-```bash
-$ npm install
+```
+npm install
+npm run start:dev
 ```
 
-## Compile and run the project
+API on `http://localhost:3000`. Connection string in `.env` (`MONGODB_URI`, defaults to `mongodb://localhost:27017/equipment-ledger`).
 
-```bash
-# development
-$ npm run start
+Frontend: see its own repo — `npm install` → `npm run dev`, opens `http://localhost:3001`, points at this API via `NEXT_PUBLIC_API_URL` (default `http://localhost:3000`).
 
-# watch mode
-$ npm run start:dev
+## 2. How to seed
 
-# production mode
-$ npm run start:prod
+```
+npm run seed
 ```
 
-## Run tests
+Wipes the 4 collections and rebuilds a deterministic store: 60 assets, 12 workers, 30 days of movements (including one overdue, one late-logged, one correction) and past/future reservations. Safe to run repeatedly — it never doubles.
 
-```bash
-# unit tests
-$ npm run test
+## 3. How to run the invariant checks
 
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
+```
+npm run check
 ```
 
-## Deployment
+Reads the database directly and asserts: every asset's current holder matches its last live movement, no return dated before its issue, no two overlapping active reservations, no duplicate idempotency keys. Prints PASS or FAIL.
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+## 4. The model, and why
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+Four collections: **Asset**, **Worker** (certifications embedded, no separate collection), **Reservation**, **Movement**.
 
-```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+The **Movement ledger is the source of truth.** Every issue and return is an append-only row that records `occurredAt` (when it happened) and `recordedAt` (when it was typed in) as separate fields. Asset stores only its fixed facts plus `outOfService` and one `heldBy` field. Current status, current holder, "overdue", and any point-in-time view are all computed from the movements, never stored (see §8).
+
+A few smaller choices:
+
+- **Certification boundary:** a cert is valid only if it expires *strictly after* the issue time — expiry on the day of issue is refused. All dates treated as UTC.
+- **`@nestjs/mongoose` pinned to v11:** v12 is ESM-only and breaks Jest; v11 still supports Mongoose 9.
+
+## 5. How concurrent issue was made impossible
+
+One line:
+
+```
+assetModel.updateOne({ _id, heldBy: null }, { $set: { heldBy: workerId } })
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+MongoDB applies a single-document update atomically. Two issue requests racing for the same asset both run this; exactly one matches `heldBy: null` and wins, the other gets `matchedCount: 0` and is rejected. Return does the mirror (`{ _id, heldBy: holderId } → null`).
 
-## Resources
+**Cost:** `heldBy` is a small bit of denormalised state, so `npm run check` verifies it always agrees with the ledger.
 
-Check out a few resources that may come in handy when working with NestJS:
+Reservations can't use this trick (overlap isn't a single-field match), so they pre-check, insert, then re-check for an older overlapping row and roll their own row back if found — deterministic, one survivor.
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+## 6. What I'd do with another day
 
-## Support
+- Remember the storekeeper once instead of picking them on every form.
+- Pagination on the asset list and history.
+- Auto-expiry of reservations (a past uncollected one currently stays "active").
+- Run the reservation / one-holder logic inside a MongoDB transaction instead of compensating rollbacks.
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+## 7. What I knowingly left out
 
-## Stay in touch
+Everything in the brief is implemented. The trade-offs made:
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+- **No DB transactions** — standalone Mongo, so atomic single-document updates plus compensating rollback instead (see §5). A real transaction would make the movement-write + asset-update all-or-nothing; without it, a crash in the gap could leave `heldBy` set with no movement behind it — which `npm run check` catches, and which a replica set + transactions would remove entirely.
+- Out of scope per the brief, not built: auth, roles, email, file uploads, barcode scanning, multi-site.
+- Correcting a movement changes only its time and note, not the worker or asset.
 
-## License
+## 8. Why asset status is derived, not stored
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+The brief wants "who held what at 14:20 last Tuesday" answered from the ledger, not a cache. A stored status field would drift the moment someone makes a correction or logs an entry late. So status, holder and "overdue" are recomputed from the movements every time. The `heldBy` field exists only as the concurrency lock (§5), and `npm run check` proves it never disagrees with the ledger. Every screen and the "as of" query stay consistent because they're the same computation.
+
+## 9. Decision: out-of-service asset with standing reservations
+
+We don't touch the reservations. Marking an asset out of service just flips a flag. Issue and Reserve both refuse an out-of-service asset with a readable reason, so a standing reservation simply becomes uncollectable — and the storekeeper sees a clear "GRND-003 is out of service: cracked guard" when the worker turns up, rather than a silent cancellation the worker never hears about. A "back in service" endpoint undoes it.
+
+## API
+
+| Method | Route | |
+|---|---|---|
+| `GET` | `/assets` | list, current holder populated (`?kind=` filter) |
+| `POST` | `/assets` | create |
+| `PATCH` | `/assets/:id/out-of-service` | `{ reason }` |
+| `PATCH` | `/assets/:id/back-in-service` | |
+| `GET` | `/workers` | list |
+| `POST` | `/workers` | create |
+| `POST` | `/movements/issue` | hand a tool to a worker |
+| `POST` | `/movements/return` | take it back (`damaged` → out of service) |
+| `POST` | `/movements/:id/correct` | fix a movement's time/note, keeping history |
+| `POST` | `/reservations` | book a future window |
+| `GET` | `/reservations` | list (`?assetId=` `?workerId=` `?status=`) |
+| `PATCH` | `/reservations/:id/cancel` | |
+| `GET` | `/reconstruct/as-of?at=<ISO>` | the whole store at a past instant |
+| `GET` | `/reconstruct/assets/:id` | one asset's full history + reservations |
+
+## Tests
+
+```
+npm test
+```
+
+Currently smoke tests (each module wires up). The behaviour proof is `npm run check` against a seeded or exercised database.
